@@ -1,7 +1,9 @@
 import azure.cognitiveservices.speech as speechsdk
-from datetime import date
+import genanki
 import random
 import os
+import re
+from datetime import date
 
 speech_key = ""
 service_region = "eastus"
@@ -12,6 +14,50 @@ def createOutputPath():
 	if not os.path.exists(newpath):
 		os.makedirs(newpath)
 	return newpath
+
+def createDeck(source, out):
+	media_files = []
+	model = genanki.Model(
+	    1607392319,
+	    'Chinese Audio Model',
+	    fields=[
+	        {'name': 'Audio'},
+	        {'name': 'Text'},
+	    ],
+	    templates=[
+	        {
+	            'name': 'Card 1',
+	            'qfmt': '{{Audio}}',  # Front: audio
+	            'afmt': '{{FrontSide}}<hr id="answer">{{Text}}',  # Back: show text
+	        },
+	    ],
+	    css='''
+	    .card {
+	      font-family: arial;
+	      font-size: 24px;
+	      text-align: center;
+	      color: black;
+	      background-color: white;
+	    }
+	    '''
+	)
+	deck = genanki.Deck(2059400110, "Audio Flashcards")
+	for file in os.listdir(source):
+		if file.endswith('.mp3'):
+			chinese_text = os.path.splitext(file)[0]
+			audio_tag = f"[sound:{file}]"
+			note = genanki.Note(
+				model = model,
+				fields=[audio_tag, chinese_text]
+			)
+			deck.add_note(note)
+			media_files.append(os.path.join(source, file))
+	package = genanki.Package(deck)
+	package.media_files = media_files
+	package.write_to_file(out)
+	print(f"✅ Anki deck created: {out}")
+
+
 
 def translate(path, text):
 	speech_config = speechsdk.SpeechConfig(subscription=speech_key, region=service_region)
@@ -60,6 +106,8 @@ def run():
 	print(path)
 	for w in words:
 		translate(path, w)
+	today = str(date.today())
+	createDeck(path, path + '/deck-' + today + '.apkg')
 
 run()
 
